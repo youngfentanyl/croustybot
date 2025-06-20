@@ -76,11 +76,11 @@ async def new_tournament(ctx, *, args: str):
     try:
         parts = [part.strip() for part in args.split("/")]
 
-        if len(parts) != 5:
-            await ctx.send("❌ Invalid format. Use: `pjt!newtournament Name/Description/Format/MaxTeams/AdditionalMessage`")
+        if len(parts) != 6:
+            await ctx.send("❌ Invalid format. Use: `pjt!newtournament Name/Description/Format/MaxTeams/AdditionalMessage/DD,MM,YYYY,HH:MM`")
             return
 
-        title, description, format_, max_teams, extra_msg = parts
+        title, description, format_, max_teams, extra_msg, raw_schedule = parts
         valid_formats = ["1v1", "2v2", "3v3", "4v4", "5v5"]
 
         if format_ not in valid_formats:
@@ -91,6 +91,19 @@ async def new_tournament(ctx, *, args: str):
             await ctx.send("❌ Max teams must be an integer.")
             return
 
+        # Parse date & time
+        try:
+            day, month, year, hour_minute = raw_schedule.split(",")
+            hour, minute = map(int, hour_minute.split(":"))
+            from datetime import datetime, timezone, timedelta
+            uk_offset = timedelta(hours=1)  # UK time = UTC+1 in July (BST)
+            dt = datetime(int(year), int(month), int(day), hour, minute, tzinfo=timezone.utc) - uk_offset
+            timestamp = int(dt.timestamp())
+            schedule_value = f"<t:{timestamp}:F>"
+        except Exception:
+            await ctx.send("❌ Invalid date format. Use: `DD,MM,YYYY,HH:MM` (e.g. 06,07,2025,22:30)")
+            return
+
         embed = discord.Embed(
             title=f"Tournament: {title}",
             description=f"> {description}",
@@ -98,7 +111,8 @@ async def new_tournament(ctx, *, args: str):
         )
         embed.add_field(name="🧩 Format", value=format_, inline=True)
         embed.add_field(name="👥 Max Teams", value=max_teams, inline=True)
-        embed.add_field(name="📜 Ruleset", value="<#1384999264031084565>", inline=False)
+        embed.add_field(name="📜 Ruleset", value=f"<#{RULESET_CHANNEL_ID}>", inline=True)
+        embed.add_field(name="📅 Schedule", value=schedule_value, inline=True)
         embed.add_field(name="\u200b", value=extra_msg, inline=False)
         embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/1055/1055646.png")
         embed.set_footer(text=f"Organized by {ctx.author.display_name}", icon_url=ctx.author.avatar.url if ctx.author.avatar else None)
